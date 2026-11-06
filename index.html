@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Klippy Object Explorer</title>
+    <style>
+        :root {
+            --bg: #f2f5f4;
+            --panel: #fff;
+            --ink: #16201d;
+            --mute: #65726e;
+            --line: #dce3e0;
+            --hover: #eaf1ef;
+            --sel: #d5ebe6;
+            --acc: #0b8a79;
+            --str: #a3510f;
+            --num: #2f55c4;
+            --bool: #9a3b9a;
+            --nul: #8a8f8d;
+            --bad: #c53030;
+            --ok: #23915a;
+            --flash: #ffe9a8;
+            color-scheme: light
+        }
+
+        @media(prefers-color-scheme:dark) {
+            :root {
+                --bg: #0f1514;
+                --panel: #172120;
+                --ink: #e5eeeb;
+                --mute: #8c9d98;
+                --line: #293634;
+                --hover: #1e2b29;
+                --sel: #1f3b37;
+                --acc: #3ccfb8;
+                --str: #f0b07a;
+                --num: #8fb0ff;
+                --bool: #d99bf0;
+                --nul: #7e8885;
+                --bad: #ff6b6b;
+                --ok: #4cd68a;
+                --flash: #5a4a14;
+                color-scheme: dark
+            }
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+            display: flex;
+            flex-direction: column
+        }
+
+        input,
+        select,
+        button {
+            font: inherit;
+            color: var(--ink);
+            background: var(--bg);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 6px 10px
+        }
+
+        button {
+            cursor: pointer
+        }
+
+        button:hover {
+            border-color: var(--acc)
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--acc);
+            outline-offset: 1px
+        }
+
+        button.primary {
+            background: var(--acc);
+            border-color: var(--acc);
+            color: #fff;
+            font-weight: 600
+        }
+
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 14px;
+            align-items: center;
+            padding: 10px 18px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--line)
+        }
+
+        h1 {
+            font-size: 17px;
+            margin: 0 6px 0 0;
+            font-weight: 650;
+            letter-spacing: -.01em
+        }
+
+        form {
+            display: flex;
+            gap: 6px;
+            flex: 1 1 320px;
+            max-width: 520px
+        }
+
+        form input {
+            flex: 1;
+            min-width: 0
+        }
+
+        #status {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--mute);
+            font-size: 13px
+        }
+
+        #dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--mute)
+        }
+
+        #dot.ok {
+            background: var(--ok)
+        }
+
+        #dot.bad {
+            background: var(--bad)
+        }
+
+        .layout {
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: 300px 1fr
+        }
+
+        aside {
+            border-right: 1px solid var(--line);
+            background: var(--panel);
+            display: flex;
+            flex-direction: column;
+            min-height: 0
+        }
+
+        aside .top {
+            padding: 10px;
+            border-bottom: 1px solid var(--line)
+        }
+
+        aside input {
+            width: 100%
+        }
+
+        #count {
+            color: var(--mute);
+            font-size: 12px;
+            margin-top: 6px
+        }
+
+        #list {
+            overflow: auto;
+            flex: 1;
+            padding: 4px 0 12px
+        }
+
+        #list details>summary {
+            cursor: pointer;
+            padding: 5px 12px;
+            font-weight: 600;
+            font-size: 13px;
+            list-style: none;
+            display: flex;
+            gap: 6px;
+            align-items: center
+        }
+
+        #list details>summary::-webkit-details-marker {
+            display: none
+        }
+
+        #list details>summary::before {
+            content: "▸";
+            color: var(--mute);
+            width: 10px;
+            transition: transform .1s
+        }
+
+        #list details[open]>summary::before {
+            transform: rotate(90deg)
+        }
+
+        #list summary small {
+            color: var(--mute);
+            font-weight: 400
+        }
+
+        #list button.obj {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: 0;
+            border-radius: 0;
+            background: none;
+            padding: 4px 12px 4px 28px;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        #list button.obj:hover {
+            background: var(--hover)
+        }
+
+        #list button.obj.sel {
+            background: var(--sel);
+            font-weight: 600
+        }
+
+        section.main {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0
+        }
+
+        .bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel)
+        }
+
+        .bar h2 {
+            margin: 0 auto 0 0;
+            font-size: 15px;
+            overflow-wrap: anywhere
+        }
+
+        .bar .meta {
+            color: var(--mute);
+            font-size: 12px
+        }
+
+        #view {
+            flex: 1;
+            overflow: auto;
+            padding: 14px 18px 40px;
+            font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+        }
+
+        .empty {
+            color: var(--mute);
+            font: 14px system-ui, sans-serif;
+            padding: 60px 0;
+            text-align: center
+        }
+
+        #view details {
+            margin: 0
+        }
+
+        #view summary {
+            cursor: pointer;
+            list-style: none;
+            border-radius: 4px;
+            padding: 0 4px;
+            margin-left: -4px
+        }
+
+        #view summary::-webkit-details-marker {
+            display: none
+        }
+
+        #view summary::before {
+            content: "▸";
+            display: inline-block;
+            width: 14px;
+            color: var(--mute);
+            transition: transform .1s
+        }
+
+        #view details[open]>summary::before {
+            transform: rotate(90deg)
+        }
+
+        #view summary:hover,
+        #view .row:hover {
+            background: var(--hover)
+        }
+
+        #view .kids {
+            margin-left: 6px;
+            padding-left: 14px;
+            border-left: 1px solid var(--line)
+        }
+
+        #view .row {
+            padding: 0 4px;
+            margin-left: -4px;
+            border-radius: 4px;
+            overflow-wrap: anywhere
+        }
+
+        #view .row.leaf {
+            padding-left: 18px
+        }
+
+        .k {
+            color: var(--ink);
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 3px
+        }
+
+        .k:hover {
+            text-decoration: underline;
+            text-decoration-style: dotted
+        }
+
+        .k.picked {
+            background: var(--sel);
+            outline: 1px solid var(--acc)
+        }
+
+        .info {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 4px 10px;
+            align-items: center;
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel);
+            font-size: 13px
+        }
+
+        .info[hidden] {
+            display: none
+        }
+
+        .info>span:nth-child(3n+1),
+        .pr>span {
+            color: var(--mute)
+        }
+
+        code {
+            font: 12.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            overflow-wrap: anywhere;
+            background: var(--bg);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 1px 6px
+        }
+
+        button.cp {
+            padding: 1px 8px;
+            font-size: 12px
+        }
+
+        .pathbar {
+            border-top: 1px solid var(--line);
+            background: var(--panel);
+            padding: 8px 16px;
+            font-size: 13px;
+            min-height: 42px
+        }
+
+        .pathbar .hintline {
+            color: var(--mute)
+        }
+
+        .pr {
+            display: grid;
+            grid-template-columns: 46px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            margin: 3px 0
+        }
+
+        .hint {
+            color: var(--mute)
+        }
+
+        .t-string {
+            color: var(--str)
+        }
+
+        .t-number {
+            color: var(--num)
+        }
+
+        .t-boolean {
+            color: var(--bool)
+        }
+
+        .t-null {
+            color: var(--nul);
+            font-style: italic
+        }
+
+        .chg {
+            animation: fl 1.4s ease-out
+        }
+
+        @keyframes fl {
+            from {
+                background: var(--flash)
+            }
+
+            to {
+                background: transparent
+            }
+        }
+
+        @media(prefers-reduced-motion:reduce) {
+            .chg {
+                animation: none;
+                background: var(--flash)
+            }
+        }
+
+        @media(max-width:760px) {
+            .layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: 240px 1fr
+            }
+
+            aside {
+                border-right: 0;
+                border-bottom: 1px solid var(--line)
+            }
+        }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Klippy Object Explorer</h1>
+      <form id="f">
+        <input id="url"
+               placeholder="Printer URL, e.g. http://voron.local"
+               autocomplete="url"
+               spellcheck="false">
+        <button class="primary">Connect</button>
+      </form>
+      <div id="status"><span id="dot"></span><span id="stxt">Not connected</span></div>
+    </header>
+    <div class="layout">
+      <aside>
+        <div class="top">
+          <input id="filter"
+                 type="search"
+                 placeholder="Filter objects"
+                 aria-label="Filter objects"
+                 spellcheck="false">
+          <div id="count"></div>
+        </div>
+        <div id="list"></div>
+      </aside>
+      <section class="main">
+        <div class="bar">
+          <h2 id="title">No object selected</h2>
+          <span class="meta" id="meta"></span>
+          <label>
+            Live
+            <select id="live">
+              <option value="0">Off</option>
+              <option value="1000">1 s</option>
+              <option value="2000">2 s</option>
+              <option value="5000">5 s</option>
+            </select>
+          </label>
+          <button id="refresh" type="button">Refresh</button>
+          <button id="expand" type="button">Expand all</button>
+          <button id="collapse" type="button">Collapse all</button>
+          <button id="copy" type="button">Copy JSON</button>
+        </div>
+        <div class="info" id="info" hidden></div>
+        <div id="view">
+          <div class="empty">Connect to a printer, then pick an object from the list.</div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+        const $ = s => document.querySelector(s);
+        const store = {
+            get(k) {
+                try {
+                    return localStorage.getItem(k) || ''
+                } catch {
+                    return ''
+                }
+            },
+            set(k, v) {
+                try {
+                    localStorage.setItem(k, v)
+                } catch {}
+            }
+        };
+        const esc = s => String(s).replace(/[&<>"]/g, c => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;'
+        } [c]));
+
+        let picked = null,
+            base = '',
+            objects = [],
+            selected = '',
+            current = null,
+            closed = new Set(),
+            paths = [],
+            prev = new Map(),
+            timer = 0,
+            token = 0;
+        const MAX_ITEMS = 300;
+
+        function setStatus(t, s) {
+            $('#stxt').textContent = t;
+            $('#dot').className = s || '';
+        }
+
+        function normUrl(u) {
+            u = u.trim();
+            if (!u) return '';
+            if (!/^https?:\/\//i.test(u)) u = 'http://' + u;
+            return u.replace(/\/+$/, '');
+        }
+        async function jget(p) {
+            const r = await fetch(base + p, {
+                cache: 'no-store'
+            });
+            if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+            return (await r.json()).result;
+        }
+
+        /* ---------- sidebar ---------- */
+        function renderList() {
+            const q = $('#filter').value.trim().toLowerCase();
+            const prefixes = new Set(objects.filter(o => o.includes(' ')).map(o => o.split(' ')[0]));
+            const groups = new Map();
+            objects.forEach(o => {
+                if (q && !o.toLowerCase().includes(q)) return;
+                const g = o.includes(' ') ? o.split(' ')[0] : (prefixes.has(o) ? o : 'general');
+                if (!groups.has(g)) groups.set(g, []);
+                groups.get(g).push(o);
+            });
+            const list = $('#list');
+            list.innerHTML = '';
+            let shown = 0;
+            [...groups.keys()].sort((a, b) => a === 'general' ? -1 : b === 'general' ? 1 : a.localeCompare(b)).forEach(g => {
+                const items = groups.get(g);
+                shown += items.length;
+                const d = document.createElement('details');
+                d.open = !!q || g === 'general' || items.includes(selected) || groups.size <= 3;
+                d.innerHTML = `<summary>${esc(g)} <small>${items.length}</small></summary>`;
+                items.forEach(o => {
+                    const b = document.createElement('button');
+                    b.className = 'obj' + (o === selected ? ' sel' : '');
+                    b.type = 'button';
+                    b.title = o;
+                    b.textContent = o === g ? o : (o.includes(' ') ? o.slice(g.length + 1) : o);
+                    b.addEventListener('click', () => select(o));
+                    d.appendChild(b);
+                });
+                list.appendChild(d);
+            });
+            $('#count').textContent = `${shown} of ${objects.length} objects`;
+        }
+
+        /* ---------- JSON tree ---------- */
+        const isObj = v => v !== null && typeof v === 'object';
+        const prim = v => v === null ? 'null' : typeof v;
+        const primText = v => typeof v === 'string' ? JSON.stringify(v) : String(v);
+
+        function leafHtml(v) {
+            return `<span class="t-${prim(v)}">${esc(primText(v))}</span>`;
+        }
+
+        function build(key, val, segs, parent) {
+            const path = segs.join('\u0000');
+            const label = key === null ? '' : `<span class="k">${esc(key)}</span><span class="hint">: </span>`;
+            if (!isObj(val) || (Array.isArray(val) ? val.length === 0 : Object.keys(val).length === 0) ||
+                (Array.isArray(val) && val.length <= 8 && val.every(x => !isObj(x)))) {
+                const row = document.createElement('div');
+                row.className = 'row leaf';
+                let inner;
+                if (!isObj(val)) inner = leafHtml(val);
+                else if (Array.isArray(val)) inner = val.length ? '<span class="hint">[</span>' + val.map(leafHtml).join('<span class="hint">, </span>') + '<span class="hint">]</span>' : '<span class="hint">[]</span>';
+                else inner = '<span class="hint">{}</span>';
+                row.innerHTML = label + inner;
+                bindKey(row, segs, path);
+                const sig = JSON.stringify(val);
+                if (prev.has(path) && prev.get(path) !== sig) row.firstElementChild && row.classList.add('chg');
+                prev.set(path, sig);
+                parent.appendChild(row);
+                return;
+            }
+            const arr = Array.isArray(val);
+            const entries = arr ? val.map((v, i) => [i, v]) : Object.entries(val);
+            const d = document.createElement('details');
+            d.open = !closed.has(path);
+            paths.push(path);
+            const s = document.createElement('summary');
+            s.innerHTML = label + `<span class="hint">${arr ? '[' + val.length + ']' : '{' + entries.length + '}'}</span>`;
+            bindKey(s, segs, path);
+            s.addEventListener('click', () => {
+                d.open ? closed.add(path) : closed.delete(path);
+            });
+            d.appendChild(s);
+            const kids = document.createElement('div');
+            kids.className = 'kids';
+            entries.slice(0, MAX_ITEMS).forEach(([k, v]) => build(String(k), v, [...segs, k], kids));
+            if (entries.length > MAX_ITEMS) {
+                const m = document.createElement('div');
+                m.className = 'row leaf hint';
+                m.textContent = `… ${entries.length - MAX_ITEMS} more not shown (use Copy JSON for everything)`;
+                kids.appendChild(m);
+            }
+            d.appendChild(kids);
+            parent.appendChild(d);
+        }
+
+        const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+        function refs(segs) {
+            const all = [selected, ...segs];
+            const dict = 'printer' + all.map(x => typeof x === 'number' ? `[${x}]` : `[${JSON.stringify(x)}]`).join('');
+            const mixed = 'printer' + all.map(x => typeof x === 'number' ? `[${x}]` : IDENT.test(x) ? '.' + x : `[${JSON.stringify(x)}]`).join('');
+            const dotOk = all.every(x => typeof x === 'number' || IDENT.test(x));
+            return {
+                dict,
+                mixed,
+                dot: dotOk ? mixed : null
+            };
+        }
+
+        function showPath(segs) {
+            const key = segs.map(x => typeof x === 'number' ? `[${x}]` : IDENT.test(x) ? '.' + x : `[${JSON.stringify(x)}]`).join('');
+            $('#keycode').textContent = key || '–';
+            $('#keycp').style.visibility = key ? 'visible' : 'hidden';
+        }
+
+        function bindKey(el, segs, path) {
+            const k = el.querySelector('.k');
+            if (!k) return;
+            if (path === picked) k.classList.add('picked');
+            k.addEventListener('click', () => {
+                picked = path;
+                document.querySelectorAll('.k.picked').forEach(x => x.classList.remove('picked'));
+                k.classList.add('picked');
+                showPath(segs);
+            });
+        }
+
+        function setInfo() {
+            const info = $('#info');
+            if (!selected) {
+                info.hidden = true;
+                return;
+            }
+            const url = `${base}/printer/objects/query?${encodeURIComponent(selected)}`;
+            const mac = '{' + refs([]).mixed + '}';
+            info.innerHTML = `<span>URL</span><code>${esc(url)}</code><button class="cp" type="button">Copy</button><span>Macro</span><code>${esc(mac)}</code><button class="cp" type="button">Copy</button><span>Key</span><code id="keycode">click a key in the tree</code><button class="cp" id="keycp" type="button" style="visibility:hidden">Copy</button>`;
+            info.hidden = false;
+        }
+        document.addEventListener('click', async e => {
+            const b = e.target.closest('button.cp');
+            if (!b) return;
+            try {
+                await navigator.clipboard.writeText(b.previousElementSibling.textContent);
+                b.textContent = 'Copied';
+            } catch {
+                b.textContent = 'Failed';
+            }
+            setTimeout(() => b.textContent = 'Copy', 1200);
+        });
+
+        function renderTree() {
+            const view = $('#view'),
+                top = view.scrollTop;
+            paths = [];
+            const frag = document.createDocumentFragment();
+            build(null, current, [], frag);
+            view.innerHTML = '';
+            view.appendChild(frag);
+            view.scrollTop = top;
+        }
+
+        /* ---------- data ---------- */
+        async function load(gen, first) {
+            try {
+                const r = await jget('/printer/objects/query?' + encodeURIComponent(selected));
+                if (gen !== token) return;
+                current = r.status[selected] ?? {};
+                $('#meta').textContent = 'eventtime ' + (+r.eventtime).toFixed(3);
+                if (first) prev.clear();
+                renderTree();
+                setStatus('Connected · ' + base.replace(/^https?:\/\//, ''), 'ok');
+            } catch (e) {
+                if (gen === token) setStatus('Request failed: ' + e.message, 'bad');
+            }
+        }
+
+        function schedule(gen) {
+            clearTimeout(timer);
+            const ms = +$('#live').value;
+            if (!ms) return;
+            timer = setTimeout(async () => {
+                if (gen !== token) return;
+                await load(gen, false);
+                schedule(gen);
+            }, ms);
+        }
+
+        function select(name) {
+            selected = name;
+            picked = null;
+            closed = new Set();
+            prev = new Map();
+            current = null;
+            $('#title').textContent = name;
+            $('#meta').textContent = '';
+            $('#view').innerHTML = '<div class="empty">Loading…</div>';
+            setInfo();
+            renderList();
+            const gen = ++token;
+            load(gen, true).then(() => schedule(gen));
+        }
+
+        async function connect(raw) {
+            clearTimeout(timer);
+            ++token;
+            base = normUrl(raw);
+            if (!base) return;
+            store.set('klipperUrl', base);
+            $('#url').value = base;
+            setStatus('Connecting…', '');
+            try {
+                objects = (await jget('/printer/objects/list')).objects || [];
+                selected = '';
+                current = null;
+                setInfo();
+                $('#title').textContent = 'No object selected';
+                $('#meta').textContent = '';
+                $('#view').innerHTML = '<div class="empty">Pick an object from the list.</div>';
+                renderList();
+                setStatus(`Connected · ${objects.length} objects`, 'ok');
+            } catch (e) {
+                const mixed = location.protocol === 'https:' && base.startsWith('http:');
+                setStatus('Could not reach printer: ' + e.message + (mixed ? ' (https page blocking http request)' : ' (check URL and Moonraker cors_domains)'), 'bad');
+            }
+        }
+
+        $('#f').addEventListener('submit', e => {
+            e.preventDefault();
+            connect($('#url').value);
+        });
+        $('#filter').addEventListener('input', renderList);
+        $('#refresh').addEventListener('click', () => {
+            if (selected) load(++token, false).then(() => schedule(token));
+        });
+        $('#live').addEventListener('change', () => {
+            if (selected) {
+                const g = ++token;
+                schedule(g);
+            }
+        });
+        $('#expand').addEventListener('click', () => {
+            closed.clear();
+            if (current !== null) renderTree();
+        });
+        $('#collapse').addEventListener('click', () => {
+            if (current === null) return;
+            paths.forEach(p => closed.add(p));
+            renderTree();
+        });
+        $('#copy').addEventListener('click', async () => {
+            if (current === null) return;
+            const b = $('#copy'),
+                txt = JSON.stringify({
+                    [selected]: current
+                }, null, 2);
+            try {
+                await navigator.clipboard.writeText(txt);
+                b.textContent = 'Copied';
+            } catch {
+                b.textContent = 'Copy failed';
+            }
+            setTimeout(() => b.textContent = 'Copy JSON', 1200);
+        });
+        const saved = store.get('klipperUrl');
+        if (saved) {
+            $('#url').value = saved;
+            connect(saved);
+        }
+    </script>
+  </body>
+</html>
