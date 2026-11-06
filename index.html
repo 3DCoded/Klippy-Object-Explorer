@@ -660,9 +660,11 @@
         }
 
         function showPath(segs) {
-            const key = segs.map(x => typeof x === 'number' ? `[${x}]` : IDENT.test(x) ? '.' + x : `[${JSON.stringify(x)}]`).join('');
-            $('#keycode').textContent = key || '–';
-            $('#keycp').style.visibility = key ? 'visible' : 'hidden';
+            const has = segs.length > 0;
+            const jk = segs.map(x => typeof x === 'number' ? `[${x}]` : `[${JSON.stringify(x)}]`).join('');
+            $('#jkcode').textContent = has ? jk : '–';
+            $('#mkcode').textContent = has ? '{' + refs(segs).mixed + '}' : '–';
+            $('#jkcp').style.visibility = $('#mkcp').style.visibility = has ? 'visible' : 'hidden';
         }
 
         function bindKey(el, segs, path) {
@@ -685,7 +687,12 @@
             }
             const url = `${base}/printer/objects/query?${encodeURIComponent(selected)}`;
             const mac = '{' + refs([]).mixed + '}';
-            info.innerHTML = `<span>URL</span><code>${esc(url)}</code><button class="cp" type="button">Copy</button><span>Macro</span><code>${esc(mac)}</code><button class="cp" type="button">Copy</button><span>Key</span><code id="keycode">click a key in the tree</code><button class="cp" id="keycp" type="button" style="visibility:hidden">Copy</button>`;
+            const btn = '<button class="cp" type="button">Copy</button>',
+                hint = 'click a key in the tree';
+            info.innerHTML = `<span>URL</span><code>${esc(url)}</code>${btn}` +
+                `<span>JSON key</span><code id="jkcode">${hint}</code><button class="cp" id="jkcp" type="button" style="visibility:hidden">Copy</button>` +
+                `<span>Macro</span><code>${esc(mac)}</code>${btn}` +
+                `<span>Macro + key</span><code id="mkcode">${hint}</code><button class="cp" id="mkcp" type="button" style="visibility:hidden">Copy</button>`;
             info.hidden = false;
         }
         document.addEventListener('click', async e => {
